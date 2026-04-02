@@ -1,0 +1,122 @@
+name: Bug Report
+description: Report a bug or incorrect scan result
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please fill out the fields below so we can reproduce and fix the issue.
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you running Unshadow-AI on?
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows Server 2022
+        - Windows Server 2019
+        - macOS 15 (Sequoia)
+        - macOS 14 (Sonoma)
+        - macOS 13 (Ventura)
+        - Ubuntu 24.04
+        - Ubuntu 22.04
+        - Debian 12
+        - Fedora 40+
+        - RHEL / CentOS
+        - Arch Linux
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: os-detail
+    attributes:
+      label: OS Version Detail
+      description: "Exact version (e.g. `Windows 11 Pro 23H2 Build 22631`, `macOS 14.3`, `Ubuntu 24.04.1 LTS`)"
+      placeholder: "Windows 11 Pro 23H2"
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Unshadow-AI Version
+      description: "Run `unshadow-ai --version` and paste the output"
+      placeholder: "Unshadow-AI 2.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation Method
+      options:
+        - Pre-built binary from Releases
+        - Built from source (PyInstaller)
+        - Running directly with Python
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: category
+    attributes:
+      label: Affected Category
+      description: Which scan category is affected?
+      options:
+        - label: Browser extensions
+        - label: IDE extensions
+        - label: Office add-ins
+        - label: Installed software
+        - label: Package managers
+        - label: Upload (HTTP/S3)
+        - label: CSV/JSON output
+        - label: Other
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to trigger the bug
+      placeholder: |
+        1. Run `unshadow-ai -c browser -f json`
+        2. Check the output for Chrome extensions
+        3. Extension X is missing / shows wrong data
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior / Error Output
+      description: What actually happened? Paste the exact error message or incorrect output.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: verbose
+    attributes:
+      label: Verbose Log Output
+      description: "Run with `-v` flag and paste the stderr output: `unshadow-ai -v -c <category> 2>&1`"
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other information — screenshots, relevant software versions, environment details.
+    validations:
+      required: false

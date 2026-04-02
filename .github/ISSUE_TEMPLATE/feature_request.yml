@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We welcome feature requests! Please describe what you'd like to see added to Unshadow-AI.
+
+  - type: checkboxes
+    id: category
+    attributes:
+      label: Category
+      description: What area does this feature relate to?
+      options:
+        - label: New browser support
+        - label: New IDE support
+        - label: Office add-in detection
+        - label: New software/package manager support
+        - label: Output format (JSON/CSV)
+        - label: Upload / export
+        - label: Performance
+        - label: Cross-platform compatibility
+        - label: Enterprise deployment
+        - label: Other
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: What problem does this feature solve? What's missing or frustrating?
+      placeholder: "Currently Unshadow-AI doesn't detect extensions from Browser X, which is widely used in our organization..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this to work? Be as specific as possible.
+      placeholder: |
+        Add support for Browser X by scanning:
+        - Path: ~/.config/browserx/extensions/
+        - Manifest format: manifest.json (Chromium-based)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any workarounds or alternative approaches?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Target Platform
+      description: Which platform(s) should this feature support?
+      multiple: true
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - All platforms
+    validations:
+      required: true
