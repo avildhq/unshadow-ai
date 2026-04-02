@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "extension-inventory"
+version = "1.0.0"
+description = "Cross-platform tool to inventory browser extensions, Office add-ins, and IDE extensions"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+[project.scripts]
+extension-inventory = "src.main:main"
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0"]
