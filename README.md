@@ -1,0 +1,283 @@
+# Unshadow-AI
+
+**Cross-platform extension, add-on, and software inventory tool.**
+
+Unshadow-AI scans all user profiles on a machine and inventories browser extensions, IDE plugins, Office add-ins, and installed software. Designed for enterprise security teams to gain visibility into what's installed across their fleet.
+
+## Demo
+
+<!-- To regenerate: install vhs (https://github.com/charmbracelet/vhs), then run: vhs demo.tape -->
+
+```
+PS> .\unshadow-ai.exe
+
+ ██╗   ██╗███╗   ██╗███████╗██╗  ██╗ █████╗ ██████╗  ██████╗ ██╗    ██╗        █████╗ ██╗
+ ██║   ██║████╗  ██║██╔════╝██║  ██║██╔══██╗██╔══██╗██╔═══██╗██║    ██║       ██╔══██╗██║
+ ██║   ██║██╔██╗ ██║███████╗███████║███████║██║  ██║██║   ██║██║ █╗ ██║█████╗███████║██║
+ ╚██████╔╝██║ ╚████║███████║██║  ██║██║  ██║██████╔╝╚██████╔╝╚███╔███╔╝      ██║  ██║██║
+  ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚══╝╚══╝       ╚═╝  ╚═╝╚═╝
+
+  +---------------------+-------------------------------------------------------+
+  | Category            | Supported Products                                    |
+  +---------------------+-------------------------------------------------------+
+  | Browsers            | Chrome, Brave, Opera, Edge, Arc, 360 Browser,         |
+  |                     | Firefox, Safari (macOS)                               |
+  | - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - -   |
+  | Office Add-ins      | Word, Excel, Outlook (COM, VSTO, Web, XLL)            |
+  | - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - -   |
+  | IDEs                | VS Code, Cursor, Antigravity, Visual Studio,          |
+  |                     | JetBrains (IntelliJ, PyCharm, WebStorm, +9 more)      |
+  | - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - -   |
+  | Installed Software  | Windows Registry, Microsoft Store, WSL distros,       |
+  |                     | macOS /Applications, Homebrew,                        |
+  |                     | Linux: dpkg, rpm, snap, flatpak, pacman               |
+  | - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - -   |
+  | Package Managers    | winget, Chocolatey, Scoop, npm, pip, cargo, gem       |
+  +---------------------+-------------------------------------------------------+
+
+PS> .\unshadow-ai.exe -f json -o scan-results.json
+Output written to scan-results.json (331 items)
+
+PS> cat scan-results.json | jq '.extensions | group_by(.application)
+     | map({app: .[0].application, count: length}) | sort_by(-.count)'
+[
+  { "app": "Visual Studio (18 Insiders)", "count": 131 },
+  { "app": "Microsoft Store",             "count": 114 },
+  { "app": "Windows Programs",            "count": 28  },
+  { "app": "Firefox",                     "count": 12  },
+  { "app": "pip",                         "count": 8   },
+  { "app": "Office Excel",                "count": 4   },
+  { "app": "Chrome",                      "count": 10  },
+  { "app": "Edge",                        "count": 11  },
+  { "app": "VS Code",                     "count": 6   },
+  ...
+]
+```
+
+## Installation
+
+### Download Pre-built Binary
+
+Download the latest release for your platform from [Releases](https://github.com/avildhq/unshadow-ai/releases):
+
+| Platform | File |
+|----------|------|
+| Windows | `unshadow-ai-windows.exe` |
+| macOS | `unshadow-ai-macos` |
+| Linux | `unshadow-ai-linux` |
+
+### Build from Source
+
+```bash
+git clone https://github.com/avildhq/unshadow-ai.git
+cd unshadow-ai
+pip install pyinstaller
+pyinstaller build.spec
+# Output: dist/unshadow-ai.exe (or dist/unshadow-ai on macOS/Linux)
+```
+
+## Usage
+
+### Basic Scanning
+
+```bash
+# Scan everything, output JSON to stdout
+unshadow-ai -f json
+
+# Scan everything, save CSV to file
+unshadow-ai -f csv -o report.csv
+
+# Scan specific category only
+unshadow-ai -c browser          # Browser extensions only
+unshadow-ai -c ide              # IDE extensions only
+unshadow-ai -c office           # Office add-ins only
+unshadow-ai -c software         # Installed software only
+
+# Verbose mode (shows scan progress on stderr)
+unshadow-ai -f json -v
+
+# Scan specific users only
+unshadow-ai -f json -u alice bob
+```
+
+### Uploading Results
+
+```bash
+# Upload to any HTTP/HTTPS endpoint via PUT
+unshadow-ai -f json --upload https://api.example.com/ingest
+
+# Upload via POST
+unshadow-ai -f json --upload https://api.example.com/collect --upload-method POST
+
+# Upload to HTTP with self-signed certificate (skip SSL verification)
+unshadow-ai -f json --upload https://internal-server:8443/api -k
+
+# Upload to public/overpermissive S3 bucket (no AWS credentials needed)
+unshadow-ai --s3 s3://bucket-name
+unshadow-ai --s3 s3://bucket-name/reports
+
+# Upload to S3 AND save local copy
+unshadow-ai -f json -o local-report.json --s3 s3://bucket-name
+
+# Upload via presigned URL (for private buckets)
+unshadow-ai -f json --upload "https://bucket.s3.amazonaws.com/report.json?X-Amz-..."
+```
+
+### Output Filename
+
+When uploading to S3, the filename is auto-generated as:
+```
+FQDN-YYYYMMDD-HHMMSS.json
+```
+Example: `DESKTOP-ABC123.corp.local-20260403-143022.json`
+
+## Output Format
+
+### JSON
+
+```json
+{
+  "hostname": "DESKTOP-ABC123.corp.local",
+  "ip_addresses": ["192.168.1.10", "10.0.0.5"],
+  "scan_time": "2026-04-03T14:30:22Z",
+  "total_extensions": 331,
+  "extensions": [
+    {
+      "os": "windows",
+      "user": "user1",
+      "category": "browser",
+      "application": "Chrome",
+      "profile": "user@example.com",
+      "extension_id": "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
+      "extension_name": "1Password",
+      "version": "8.12.8.26",
+      "enabled": true,
+      "description": "The best way to experience 1Password in your browser.",
+      "permissions": "alarms, contextMenus, storage, tabs, webNavigation",
+      "install_time": "2026-04-02T18:04:58Z",
+      "from_webstore": true,
+      "install_source": "webstore",
+      "content_scripts": "<all_urls>",
+      "manifest_hash": "932bdf5177ced67fa2...",
+      "is_default": false
+    }
+  ]
+}
+```
+
+### CSV
+
+All fields as columns, with `hostname` and `ip_addresses` prepended to each row for fleet aggregation.
+
+## Supported Products
+
+### Browsers
+Chrome, Brave, Opera, Edge, Arc, 360 Browser, Firefox, Safari (macOS only)
+
+**Per-extension data collected:**
+- Extension ID, name, version, description
+- Enabled/disabled state (from Preferences)
+- Install timestamp (from Preferences or folder creation time)
+- Permissions and optional permissions
+- Content script match patterns
+- Install source: `webstore`, `sideloaded`, `policy`, `builtin`, `orphaned`, `default`, `oem`
+- `from_webstore` flag
+- Manifest SHA256 hash
+- Enterprise policy-forced extensions (Windows registry)
+- Profile: shows signed-in email address or display name
+
+### Microsoft Office Add-ins
+Word, Excel, Outlook (Windows + macOS)
+
+**Sources scanned:**
+- COM/VSTO add-ins (Windows Registry, all Office versions 2010+)
+- Web add-ins from Office Store (Wef manifest directory)
+- XLL/XLA binary add-ins (Excel Options registry)
+- Startup directory add-ins (XLSTART, Word STARTUP)
+- Install timestamps from registry key last-write-time
+
+### IDEs
+VS Code, Cursor, Google Antigravity, Visual Studio (Windows), JetBrains (12 products)
+
+**Data collected:**
+- Extension ID (publisher.name), display name, version, description
+- Install timestamp from folder creation time
+- `is_default` flag (Visual Studio built-in vs user-installed)
+- Handles both VSIX 2010 and 2011 manifest schemas
+
+### Installed Software
+| Platform | Sources |
+|----------|---------|
+| Windows | Registry programs (64-bit + 32-bit + per-user), Microsoft Store apps, WSL distributions |
+| macOS | /Applications (Info.plist), Homebrew (formulae + casks) |
+| Linux | dpkg, rpm, snap, flatpak, pacman |
+
+### Package Managers
+winget, Chocolatey, Scoop (Windows), npm (global), pip/pip3, cargo, gem
+
+## Multi-User Support
+
+Unshadow-AI scans all user profiles on the machine:
+- **Windows:** Enumerates `C:\Users\*`
+- **macOS:** Enumerates `/Users/*`
+- **Linux:** Enumerates `/home/*`
+
+Requires admin/root privileges to access other users' directories. Falls back to current user if permissions are insufficient.
+
+## Enterprise Deployment
+
+### Fleet Collection Pattern
+
+1. Deploy `unshadow-ai.exe` to endpoints (SCCM, Intune, GPO, etc.)
+2. Run with upload target:
+   ```bash
+   unshadow-ai.exe -f json --upload https://your-siem.example.com/api/ingest
+   ```
+3. Each machine uploads a JSON report with its FQDN and IP addresses
+4. Aggregate in your SIEM/data lake for fleet-wide visibility
+
+### S3 Collection Pattern
+
+1. Create an S3 bucket (or use existing)
+2. For public/overpermissive buckets:
+   ```bash
+   unshadow-ai.exe --s3 s3://your-bucket/inventory
+   ```
+3. For private buckets, generate presigned URLs and use `--upload`
+
+### What Security Teams Can Find
+
+- **Malicious extensions:** Compare `manifest_hash` against known-bad hashes
+- **Sideloaded extensions:** Filter `install_source == "sideloaded"` for extensions not from official stores
+- **Orphaned extensions:** `install_source == "orphaned"` — on disk but removed from browser (forensic artifact)
+- **Overprivileged extensions:** Filter for dangerous permissions like `<all_urls>`, `webRequest`, `cookies`
+- **Shadow IT software:** Discover unauthorized software, package managers, and browser profiles
+- **WSL blind spots:** Enumerate packages inside WSL distributions
+
+## CLI Reference
+
+```
+unshadow-ai [-h] [-V] [-l] [-f {json,csv}] [-o OUTPUT]
+             [-c {browser,office,ide,software,all}]
+             [-u [USERS ...]] [-v]
+             [--upload URL] [--upload-method {PUT,POST}]
+             [--s3 S3_URI] [-k]
+
+Options:
+  -h, --help                Show help
+  -V, --version             Show version
+  -l, --list-supported      Show supported products
+  -f, --format {json,csv}   Output format (default: json)
+  -o, --output FILE         Save to file (default: stdout)
+  -c, --category CATEGORY   Scan category (default: all)
+  -u, --users USER [USER]   Specific users to scan
+  -v, --verbose             Verbose logging to stderr
+  --upload URL              Upload via HTTP PUT/POST
+  --upload-method {PUT,POST} HTTP method (default: PUT)
+  --s3 S3_URI               Upload to S3 bucket (unsigned PUT)
+  -k, --no-verify-ssl       Skip SSL/TLS verification
+```
+
+## License
+
+MIT
