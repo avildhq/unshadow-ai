@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+from datetime import datetime, timezone
 
 from src.collectors.browsers import ChromiumCollector, FirefoxCollector, SafariCollector
 from src.collectors.office import OfficeCollector
@@ -8,7 +9,7 @@ from src.collectors.ide import IDECollector
 from src.collectors.software import SoftwareCollector
 from src.output.json_output import write_json, generate_json
 from src.output.csv_output import write_csv, generate_csv
-from src.output.upload import upload_results
+from src.output.upload import upload_results, upload_to_s3
 from src.platform_utils import enumerate_users, get_os
 
 VERSION = "2.0.0"
@@ -88,10 +89,13 @@ TABLE = f"""
     unshadow-ai {GREEN}-f csv -o report.csv{RESET}               Scan all, save CSV to file
     unshadow-ai {GREEN}-c browser{RESET}                         Scan browser extensions only
     unshadow-ai {GREEN}-c software{RESET}                        Scan installed software only
-    unshadow-ai {GREEN}-c ide -v{RESET}                          Scan IDE extensions, verbose
-    unshadow-ai {GREEN}--upload https://s3.../presigned{RESET}   Upload to S3 presigned URL
+    unshadow-ai {GREEN}--s3 s3://bucket-name{RESET}              Upload to public S3 bucket
+    unshadow-ai {GREEN}--s3 s3://bucket/prefix{RESET}            Upload to S3 with key prefix
+    unshadow-ai {GREEN}--upload https://server/api{RESET}        Upload via HTTP PUT
     unshadow-ai {GREEN}--upload http://server/api -k{RESET}      Upload to HTTP (skip SSL)
     unshadow-ai {GREEN}-h{RESET}                                 Show all options
+
+  {DIM}Output filename: FQDN-YYYYMMDD-HHMMSS.json (auto-generated for S3 uploads){RESET}
 """
 
 
@@ -170,11 +174,26 @@ def parse_args() -> argparse.Namespace:
         help="HTTP method for upload (default: PUT)",
     )
     parser.add_argument(
+        "--s3",
+        default=None,
+        metavar="S3_URI",
+        help="Upload results to S3 bucket (e.g. s3://bucket-name or s3://bucket/prefix). "
+             "Uses unsigned PUT — works on public/overpermissive buckets without AWS credentials.",
+    )
+    parser.add_argument(
         "--no-verify-ssl", "-k",
         action="store_true",
         help="Skip SSL/TLS certificate verification for upload",
     )
     return parser.parse_args()
+
+
+def default_filename(ext: str = "json") -> str:
+    """Generate default output filename: FQDN-YYYYMMDD-HHMMSS.ext"""
+    from src.platform_utils import get_hostname
+    hostname = get_hostname()
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return f"{hostname}-{timestamp}.{ext}"
 
 
 def main() -> None:
@@ -224,12 +243,17 @@ def main() -> None:
     logging.info("Found %d items total", len(results))
 
     # Generate output
+    file_ext = output_format
     if output_format == "json":
         output_str = generate_json(results)
         content_type = "application/json"
     else:
         output_str = generate_csv(results)
         content_type = "text/csv"
+
+    # Determine output filename (default: FQDN-date-time.ext)
+    out_filename = default_filename(file_ext)
+    uploading = args.upload or args.s3
 
     # Write to file and/or stdout
     if args.output:
@@ -238,7 +262,7 @@ def main() -> None:
             if output_format == "json":
                 f.write("\n")
         print(f"Output written to {args.output} ({len(results)} items)", file=sys.stderr)
-    elif not args.upload:
+    elif not uploading:
         # Write to stdout only if not upload-only
         sys.stdout.reconfigure(encoding="utf-8", errors="replace",
                                **{"newline": ""} if output_format == "csv" else {})
@@ -246,7 +270,7 @@ def main() -> None:
         if output_format == "json":
             sys.stdout.write("\n")
 
-    # Upload if requested
+    # Upload to HTTP endpoint if requested
     if args.upload:
         data = output_str.encode("utf-8")
         success = upload_results(
@@ -254,6 +278,19 @@ def main() -> None:
             url=args.upload,
             content_type=content_type,
             method=args.upload_method,
+            verify_ssl=not args.no_verify_ssl,
+        )
+        if not success:
+            sys.exit(1)
+
+    # Upload to S3 bucket if requested
+    if args.s3:
+        data = output_str.encode("utf-8")
+        success = upload_to_s3(
+            data=data,
+            s3_uri=args.s3,
+            filename=out_filename,
+            content_type=content_type,
             verify_ssl=not args.no_verify_ssl,
         )
         if not success:

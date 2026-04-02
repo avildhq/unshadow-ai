@@ -1,0 +1,69 @@
+name: Render Demo GIF
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths: [demo.tape]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install VHS
+        run: |
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+          sudo apt update && sudo apt install -y vhs
+
+      - name: Install dependencies for demo
+        run: |
+          pip install pyinstaller
+          pyinstaller build.spec
+          sudo apt install -y jq
+
+      - name: Create demo script for Linux
+        run: |
+          cat > demo-linux.tape << 'TAPE'
+          Output demo.gif
+
+          Set FontSize 14
+          Set Width 1200
+          Set Height 700
+          Set Theme "Dracula"
+          Set Padding 20
+          Set TypingSpeed 40ms
+
+          Sleep 1s
+          Type "./dist/unshadow-ai"
+          Enter
+          Sleep 4s
+
+          Type "./dist/unshadow-ai -f json -o scan-results.json"
+          Enter
+          Sleep 6s
+
+          Type "cat scan-results.json | jq '.extensions | group_by(.application) | map({app: .[0].application, count: length}) | sort_by(-.count)'"
+          Enter
+          Sleep 5s
+          TAPE
+
+      - name: Render GIF
+        run: vhs demo-linux.tape
+
+      - name: Upload GIF as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-gif
+          path: demo.gif
+
+      - name: Commit GIF to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add demo.gif
+          git diff --staged --quiet || git commit -m "Update demo.gif [automated]"
+          git push
