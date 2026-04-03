@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 
@@ -85,17 +86,17 @@ TABLE = f"""
 {_build_table()}
 
   {YELLOW}{BOLD}Usage:{RESET}
-    unshadow-ai {GREEN}-f json{RESET}                            Scan all, output JSON to stdout
-    unshadow-ai {GREEN}-f csv -o report.csv{RESET}               Scan all, save CSV to file
+    unshadow-ai {GREEN}-f json{RESET}                            Scan all, save JSON to current dir
+    unshadow-ai {GREEN}-f csv{RESET}                             Scan all, save CSV to current dir
+    unshadow-ai {GREEN}-f json -p C:\\Reports{RESET}              Save to specific folder
+    unshadow-ai {GREEN}-f csv -o report.csv{RESET}               Save with exact filename
     unshadow-ai {GREEN}-c browser{RESET}                         Scan browser extensions only
     unshadow-ai {GREEN}-c software{RESET}                        Scan installed software only
     unshadow-ai {GREEN}--s3 s3://bucket-name{RESET}              Upload to public S3 bucket
-    unshadow-ai {GREEN}--s3 s3://bucket/prefix{RESET}            Upload to S3 with key prefix
     unshadow-ai {GREEN}--upload https://server/api{RESET}        Upload via HTTP PUT
-    unshadow-ai {GREEN}--upload http://server/api -k{RESET}      Upload to HTTP (skip SSL)
     unshadow-ai {GREEN}-h{RESET}                                 Show all options
 
-  {DIM}Output filename: FQDN-YYYYMMDD-HHMMSS.json (auto-generated for S3 uploads){RESET}
+  {DIM}Output: FQDN-YYYYMMDD-HHMMSS.json/csv (auto-generated filename){RESET}
 """
 
 
@@ -142,7 +143,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output", "-o",
         default=None,
-        help="Output file path (default: stdout)",
+        help="Output file path (exact filename)",
+    )
+    parser.add_argument(
+        "--path", "-p",
+        default=None,
+        metavar="DIR",
+        help="Output directory (file auto-named as FQDN-YYYYMMDD-HHMMSS.ext)",
     )
     parser.add_argument(
         "--category", "-c",
@@ -261,24 +268,26 @@ def main() -> None:
         output_str = generate_csv(results)
         content_type = "text/csv"
 
-    # Determine output filename (default: FQDN-date-time.ext)
+    # Determine output file path
     out_filename = default_filename(file_ext)
-    uploading = args.upload or args.s3
 
-    # Write to file and/or stdout
     if args.output:
-        with open(args.output, "w", encoding="utf-8", newline="" if output_format == "csv" else None) as f:
-            f.write(output_str)
-            if output_format == "json":
-                f.write("\n")
-        print(f"Output written to {args.output} ({len(results)} items)", file=sys.stderr)
-    elif not uploading:
-        # Write to stdout only if not upload-only
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace",
-                               **{"newline": ""} if output_format == "csv" else {})
-        sys.stdout.write(output_str)
+        # Exact path specified with -o
+        output_path = args.output
+    elif args.path:
+        # Directory specified with -p, auto-name the file
+        output_path = os.path.join(args.path, out_filename)
+    else:
+        # Default: write to current working directory with auto-name
+        output_path = out_filename
+
+    # Always write to file (never dump to terminal)
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8", newline="" if output_format == "csv" else None) as f:
+        f.write(output_str)
         if output_format == "json":
-            sys.stdout.write("\n")
+            f.write("\n")
+    print(f"Output written to {output_path} ({len(results)} items)", file=sys.stderr)
 
     # Upload to HTTP endpoint if requested
     if args.upload:
