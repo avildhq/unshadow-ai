@@ -65,12 +65,15 @@ class VSCodeFamilyCollector(BaseCollector):
                 continue
 
             for username, home in users:
-                ext_dir = resolve_path(template, home)
-                if not ext_dir.exists():
-                    logger.debug("%s extensions not found for user %s at %s", app_name, username, ext_dir)
+                try:
+                    ext_dir = resolve_path(template, home)
+                    if not ext_dir.exists():
+                        logger.debug("%s extensions not found for user %s at %s", app_name, username, ext_dir)
+                        continue
+                    results.extend(self._collect_extensions(ext_dir, current_os, username, app_name))
+                except PermissionError as e:
+                    logger.warning("Permission denied scanning %s for user %s: %s", app_name, username, e)
                     continue
-
-                results.extend(self._collect_extensions(ext_dir, current_os, username, app_name))
 
         return results
 
@@ -131,10 +134,10 @@ class VisualStudioCollector(BaseCollector):
 
         # 1. Scan Program Files for VS installations
         for install_base in VISUAL_STUDIO_INSTALL_DIRS:
-            base = Path(install_base)
-            if not base.exists():
-                continue
             try:
+                base = Path(install_base)
+                if not base.exists():
+                    continue
                 for year_dir in base.iterdir():
                     if not year_dir.is_dir():
                         continue
@@ -145,23 +148,21 @@ class VisualStudioCollector(BaseCollector):
                         ide_dir = edition_dir / "Common7" / "IDE"
                         if not ide_dir.exists():
                             continue
-
-                        # Scan CommonExtensions (built-in) and Extensions (user-installed)
                         for ext_folder, default in [("CommonExtensions", True), ("Extensions", False)]:
                             ext_dir = ide_dir / ext_folder
                             if ext_dir.exists():
                                 results.extend(
                                     self._scan_extension_tree(ext_dir, "system", vs_label, default)
                                 )
-            except PermissionError:
-                logger.warning("Permission denied: %s", base)
+            except PermissionError as e:
+                logger.warning("Permission denied scanning Visual Studio at %s: %s", install_base, e)
 
         # 2. Scan per-user LocalAppData for user-installed extensions
         for username, home in users:
-            vs_local = resolve_path(VISUAL_STUDIO_LOCALAPPDATA, home)
-            if not vs_local.exists():
-                continue
             try:
+                vs_local = resolve_path(VISUAL_STUDIO_LOCALAPPDATA, home)
+                if not vs_local.exists():
+                    continue
                 for version_dir in vs_local.iterdir():
                     if not version_dir.is_dir():
                         continue
@@ -260,12 +261,11 @@ class JetBrainsCollector(BaseCollector):
         results = []
 
         for username, home in users:
-            jb_base = resolve_path(template, home)
-            if not jb_base.exists():
-                logger.debug("JetBrains directory not found for user %s at %s", username, jb_base)
-                continue
-
             try:
+                jb_base = resolve_path(template, home)
+                if not jb_base.exists():
+                    logger.debug("JetBrains directory not found for user %s at %s", username, jb_base)
+                    continue
                 for product_dir in jb_base.iterdir():
                     if not product_dir.is_dir():
                         continue

@@ -39,8 +39,12 @@ def enumerate_users(filter_users: list[str] | None = None) -> list[tuple[str, st
         base = Path("/home")
         skip = SKIP_USERS_LINUX
 
-    if not base.exists():
-        logger.warning("User base directory %s does not exist", base)
+    try:
+        if not base.exists():
+            logger.warning("User base directory %s does not exist", base)
+            return users
+    except PermissionError:
+        logger.warning("Permission denied accessing %s", base)
         return users
 
     try:

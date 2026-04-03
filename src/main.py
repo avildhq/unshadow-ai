@@ -226,19 +226,29 @@ def main() -> None:
 
     results = []
 
+    def _safe_collect(collector, name):
+        try:
+            return collector.collect(users)
+        except PermissionError as e:
+            print(f"WARNING: {name}: Permission denied - {e}", file=sys.stderr)
+            return []
+        except Exception as e:
+            logging.warning("%s collector failed: %s", name, e)
+            return []
+
     if category in ("browser", "all"):
-        results.extend(ChromiumCollector().collect(users))
-        results.extend(FirefoxCollector().collect(users))
-        results.extend(SafariCollector().collect(users))
+        results.extend(_safe_collect(ChromiumCollector(), "Chromium browsers"))
+        results.extend(_safe_collect(FirefoxCollector(), "Firefox"))
+        results.extend(_safe_collect(SafariCollector(), "Safari"))
 
     if category in ("office", "all"):
-        results.extend(OfficeCollector().collect(users))
+        results.extend(_safe_collect(OfficeCollector(), "Office"))
 
     if category in ("ide", "all"):
-        results.extend(IDECollector().collect(users))
+        results.extend(_safe_collect(IDECollector(), "IDE"))
 
     if category in ("software", "all"):
-        results.extend(SoftwareCollector().collect(users))
+        results.extend(_safe_collect(SoftwareCollector(), "Software"))
 
     logging.info("Found %d items total", len(results))
 
