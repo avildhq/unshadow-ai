@@ -109,11 +109,20 @@ class ChromiumCollector(BaseCollector):
 
             for username, home in users:
                 base_path = resolve_path(template, home)
-                if not base_path.exists():
-                    logger.debug("%s not found for user %s at %s", browser_name, username, base_path)
+                try:
+                    if not base_path.exists():
+                        logger.debug("%s not found for user %s at %s", browser_name, username, base_path)
+                        continue
+                except PermissionError:
+                    logger.debug("Permission denied checking %s for user %s", base_path, username)
                     continue
 
-                profiles = self._discover_profiles(base_path, browser_name)
+                try:
+                    profiles = self._discover_profiles(base_path, browser_name)
+                except PermissionError:
+                    logger.warning("Permission denied reading profiles at %s", base_path)
+                    continue
+
                 for profile_name, profile_path in profiles:
                     extensions = self._collect_profile_extensions(
                         profile_path, current_os, username, browser_name, profile_name
@@ -411,11 +420,19 @@ class FirefoxCollector(BaseCollector):
         results = []
         for username, home in users:
             firefox_path = resolve_path(template, home)
-            if not firefox_path.exists():
-                logger.debug("Firefox not found for user %s at %s", username, firefox_path)
+            try:
+                if not firefox_path.exists():
+                    logger.debug("Firefox not found for user %s at %s", username, firefox_path)
+                    continue
+            except PermissionError:
+                logger.debug("Permission denied checking %s for user %s", firefox_path, username)
                 continue
 
-            profiles = self._discover_profiles(firefox_path)
+            try:
+                profiles = self._discover_profiles(firefox_path)
+            except PermissionError:
+                logger.warning("Permission denied reading Firefox profiles at %s", firefox_path)
+                continue
             for profile_name, profile_path in profiles:
                 extensions = self._collect_profile_extensions(
                     profile_path, current_os, username, profile_name
