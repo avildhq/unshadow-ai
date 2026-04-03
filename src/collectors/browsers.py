@@ -108,26 +108,21 @@ class ChromiumCollector(BaseCollector):
                 continue
 
             for username, home in users:
-                base_path = resolve_path(template, home)
                 try:
+                    base_path = resolve_path(template, home)
                     if not base_path.exists():
                         logger.debug("%s not found for user %s at %s", browser_name, username, base_path)
                         continue
-                except PermissionError:
-                    logger.debug("Permission denied checking %s for user %s", base_path, username)
-                    continue
 
-                try:
                     profiles = self._discover_profiles(base_path, browser_name)
-                except PermissionError:
-                    logger.warning("Permission denied reading profiles at %s", base_path)
+                    for profile_name, profile_path in profiles:
+                        extensions = self._collect_profile_extensions(
+                            profile_path, current_os, username, browser_name, profile_name
+                        )
+                        results.extend(extensions)
+                except PermissionError as e:
+                    logger.warning("Permission denied scanning %s for user %s: %s", browser_name, username, e)
                     continue
-
-                for profile_name, profile_path in profiles:
-                    extensions = self._collect_profile_extensions(
-                        profile_path, current_os, username, browser_name, profile_name
-                    )
-                    results.extend(extensions)
 
             # Collect enterprise policy-forced extensions (per browser, not per user)
             if current_os == "windows":
@@ -135,13 +130,17 @@ class ChromiumCollector(BaseCollector):
 
         # Arc browser: UWP package with dynamic path suffix — needs glob discovery
         for username, home in users:
-            arc_paths = self._discover_arc_paths(home, current_os)
-            for arc_base in arc_paths:
-                profiles = self._discover_profiles(arc_base, "Arc")
-                for profile_name, profile_path in profiles:
-                    results.extend(self._collect_profile_extensions(
-                        profile_path, current_os, username, "Arc", profile_name
-                    ))
+            try:
+                arc_paths = self._discover_arc_paths(home, current_os)
+                for arc_base in arc_paths:
+                    profiles = self._discover_profiles(arc_base, "Arc")
+                    for profile_name, profile_path in profiles:
+                        results.extend(self._collect_profile_extensions(
+                            profile_path, current_os, username, "Arc", profile_name
+                        ))
+            except PermissionError as e:
+                logger.warning("Permission denied scanning Arc for user %s: %s", username, e)
+                continue
 
         return results
 
@@ -419,25 +418,21 @@ class FirefoxCollector(BaseCollector):
 
         results = []
         for username, home in users:
-            firefox_path = resolve_path(template, home)
             try:
+                firefox_path = resolve_path(template, home)
                 if not firefox_path.exists():
                     logger.debug("Firefox not found for user %s at %s", username, firefox_path)
                     continue
-            except PermissionError:
-                logger.debug("Permission denied checking %s for user %s", firefox_path, username)
-                continue
 
-            try:
                 profiles = self._discover_profiles(firefox_path)
-            except PermissionError:
-                logger.warning("Permission denied reading Firefox profiles at %s", firefox_path)
+                for profile_name, profile_path in profiles:
+                    extensions = self._collect_profile_extensions(
+                        profile_path, current_os, username, profile_name
+                    )
+                    results.extend(extensions)
+            except PermissionError as e:
+                logger.warning("Permission denied scanning Firefox for user %s: %s", username, e)
                 continue
-            for profile_name, profile_path in profiles:
-                extensions = self._collect_profile_extensions(
-                    profile_path, current_os, username, profile_name
-                )
-                results.extend(extensions)
 
         return results
 

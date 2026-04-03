@@ -84,17 +84,17 @@ class WindowsOfficeCollector(BaseCollector):
         seen_ids = set()
 
         for username, home in users:
-            # 1. Registry-based add-ins (COM/VSTO) — deduplicated
-            for app in OFFICE_APPS:
-                for info in self._collect_registry_addins(winreg, app, username):
-                    if info.extension_id not in seen_ids:
-                        seen_ids.add(info.extension_id)
-                        results.append(info)
+            try:
+                # 1. Registry-based add-ins (COM/VSTO) — deduplicated
+                for app in OFFICE_APPS:
+                    for info in self._collect_registry_addins(winreg, app, username):
+                        if info.extension_id not in seen_ids:
+                            seen_ids.add(info.extension_id)
+                            results.append(info)
 
-            # 2. Web add-ins from Wef directory — scan all Office version dirs
-            office_base = resolve_path("{localappdata}/Microsoft/Office", home)
-            if office_base.exists():
-                try:
+                # 2. Web add-ins from Wef directory — scan all Office version dirs
+                office_base = resolve_path("{localappdata}/Microsoft/Office", home)
+                if office_base.exists():
                     for version_dir in office_base.iterdir():
                         if not version_dir.is_dir():
                             continue
@@ -104,23 +104,24 @@ class WindowsOfficeCollector(BaseCollector):
                                 if info.extension_id not in seen_ids:
                                     seen_ids.add(info.extension_id)
                                     results.append(info)
-                except PermissionError:
-                    logger.warning("Permission denied: %s", office_base)
 
-            # 3. XLL/XLA add-ins from Excel Options registry
-            for info in self._collect_xll_addins(winreg, username):
-                if info.extension_id not in seen_ids:
-                    seen_ids.add(info.extension_id)
-                    results.append(info)
+                # 3. XLL/XLA add-ins from Excel Options registry
+                for info in self._collect_xll_addins(winreg, username):
+                    if info.extension_id not in seen_ids:
+                        seen_ids.add(info.extension_id)
+                        results.append(info)
 
-            # 4. Startup directory add-ins (XLSTART, Word STARTUP)
-            for template, app in WINDOWS_STARTUP_TEMPLATES:
-                startup_path = resolve_path(template, home)
-                if startup_path.exists():
-                    for info in self._collect_startup_dir(startup_path, username, app):
-                        if info.extension_id not in seen_ids:
-                            seen_ids.add(info.extension_id)
-                            results.append(info)
+                # 4. Startup directory add-ins (XLSTART, Word STARTUP)
+                for template, app in WINDOWS_STARTUP_TEMPLATES:
+                    startup_path = resolve_path(template, home)
+                    if startup_path.exists():
+                        for info in self._collect_startup_dir(startup_path, username, app):
+                            if info.extension_id not in seen_ids:
+                                seen_ids.add(info.extension_id)
+                                results.append(info)
+            except PermissionError as e:
+                logger.warning("Permission denied scanning Office for user %s: %s", username, e)
+                continue
 
         return results
 
