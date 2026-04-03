@@ -47,7 +47,7 @@ jobs:
           Enter
           Sleep 4s
 
-          Type "./dist/unshadow-ai -f json -o scan-results.json"
+          Type "./dist/unshadow-ai -f json -o scan-results.json -u runner 2>/dev/null"
           Enter
           Sleep 6s
 
